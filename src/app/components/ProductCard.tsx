@@ -34,7 +34,6 @@ export default function ProductCard({
     <div
       className={`group flex flex-col bg-[#111111] p-6 border border-white/5 transition-all hover:bg-[#151515] ${isOutOfStock ? "opacity-70" : "hover:border-accent/20"}`}
     >
-      {/* Conteneur Image + Badge */}
       <div className="relative aspect-square w-full mb-6 overflow-hidden bg-[#1a1a1a] rounded-sm">
         <Image
           src={imagePath}

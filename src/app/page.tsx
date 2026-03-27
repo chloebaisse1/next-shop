@@ -7,7 +7,6 @@ export default async function Home() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12 md:py-20">
-      {/* Hero Section */}
       <header className="mb-20">
         <p className="text-accent font-medium tracking-[0.3em] text-xs uppercase mb-4 opacity-90">
           Collection 2026

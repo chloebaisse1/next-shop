@@ -22,10 +22,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${dmSans.variable} ${dmSerif.variable}`}>
+    <html
+      lang="fr"
+      className={`${dmSans.variable} ${dmSerif.variable}`}
+      suppressHydrationWarning
+    >
       <body className="antialiased bg-background text-foreground min-h-screen">
         <Providers>
-          {/* La Navbar enveloppe toute l'application via le Layout */}
           <Navbar />
 
           <main>{children}</main>

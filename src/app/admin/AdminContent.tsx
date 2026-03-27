@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   HiOutlinePencilSquare,
@@ -16,8 +17,14 @@ export default function AdminContent({
   initialProducts: any[]
 }) {
   const [editProduct, setEditProduct] = useState<any>(null)
-
+  const router = useRouter()
   const isEditing = !!editProduct
+
+  const handleAction = async (actionFn: () => Promise<void>) => {
+    await actionFn()
+    setEditProduct(null)
+    router.refresh()
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
@@ -42,12 +49,13 @@ export default function AdminContent({
           <form
             key={editProduct?.id || "new"}
             action={async (formData) => {
-              if (isEditing) {
-                await updateProduct(editProduct.id, formData)
-              } else {
-                await createProduct(formData)
-              }
-              setEditProduct(null)
+              await handleAction(async () => {
+                if (isEditing) {
+                  await updateProduct(editProduct.id, formData)
+                } else {
+                  await createProduct(formData)
+                }
+              })
             }}
             className="space-y-6"
           >
@@ -107,11 +115,7 @@ export default function AdminContent({
 
             <button
               type="submit"
-              className={`w-full py-4 font-bold text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 rounded-lg text-white ${
-                isEditing
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-[#b59458] hover:bg-black"
-              }`}
+              className={`w-full py-4 font-bold text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 rounded-lg text-white ${isEditing ? "bg-blue-600 hover:bg-blue-700" : "bg-[#b59458] hover:bg-black"}`}
             >
               {isEditing ? <HiOutlinePencilSquare /> : <HiOutlinePlus />}
               {isEditing ? "Mettre à jour" : "Ajouter au stock"}
@@ -124,7 +128,6 @@ export default function AdminContent({
         <h2 className="text-sm uppercase tracking-[0.3em] font-bold mb-8 text-gray-400 italic">
           Inventaire actuel
         </h2>
-
         <div className="bg-white rounded-xl border border-black/5 shadow-sm overflow-hidden text-black">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 border-b border-gray-100">
@@ -152,9 +155,11 @@ export default function AdminContent({
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`w-2 h-2 rounded-full ${p.stock <= 5 ? "bg-orange-500" : "bg-green-500"}`}
+                        className={`w-2 h-2 rounded-full ${p.stock <= 5 ? "bg-orange-500 animate-pulse" : "bg-green-500"}`}
                       />
-                      <span className="text-xs font-mono text-gray-600">
+                      <span
+                        className={`text-xs font-mono ${p.stock <= 5 ? "text-orange-600 font-bold" : "text-gray-600"}`}
+                      >
                         {p.stock} unités
                       </span>
                     </div>
@@ -174,9 +179,12 @@ export default function AdminContent({
                         <HiOutlinePencilSquare size={18} />
                       </button>
                       <button
-                        onClick={async () => {
-                          if (confirm("Supprimer ?")) await deleteProduct(p.id)
-                        }}
+                        onClick={() =>
+                          handleAction(async () => {
+                            if (confirm("Supprimer ?"))
+                              await deleteProduct(p.id)
+                          })
+                        }
                         className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                       >
                         <HiOutlineTrash size={18} />

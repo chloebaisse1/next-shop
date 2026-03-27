@@ -8,16 +8,10 @@ export async function createCheckoutSession(cart: any[]) {
   const publicUrl = process.env.NEXT_PUBLIC_URL
 
   if (!secretKey) {
-    console.error(
-      "ERREUR : STRIPE_SECRET_KEY est undefined. Vérifie ton fichier .env.local",
-    )
     throw new Error("Configuration serveur incomplète (Key)")
   }
 
   if (!publicUrl) {
-    console.error(
-      "ERREUR : NEXT_PUBLIC_URL est undefined. Vérifie ton fichier .env.local",
-    )
     throw new Error("Configuration serveur incomplète (URL)")
   }
 
@@ -26,8 +20,6 @@ export async function createCheckoutSession(cart: any[]) {
   try {
     const line_items = cart.map((item) => {
       const amount = Math.round(Number(item.price) * 100)
-      if (amount <= 0)
-        throw new Error(`Le prix pour ${item.name} doit être supérieur à 0`)
 
       return {
         price_data: {
@@ -35,6 +27,10 @@ export async function createCheckoutSession(cart: any[]) {
           product_data: {
             name: item.name,
             description: item.description || undefined,
+
+            metadata: {
+              db_id: item.id.toString(),
+            },
           },
           unit_amount: amount,
         },
@@ -47,25 +43,13 @@ export async function createCheckoutSession(cart: any[]) {
       line_items,
       mode: "payment",
 
-      success_url: `${publicUrl.replace(/\/$/, "")}/cart/success`,
+      success_url: `${publicUrl.replace(/\/$/, "")}/cart/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${publicUrl.replace(/\/$/, "")}/cart`,
     })
 
-    if (!session.url) {
-      throw new Error("Stripe n'a pas généré d'URL de session.")
-    }
-
     return { url: session.url }
   } catch (error: any) {
-    console.error(
-      "❌ ERREUR STRIPE DÉTAILLÉE :",
-      error.raw?.message || error.message,
-    )
-
-    throw new Error(
-      error.raw?.message ||
-        error.message ||
-        "Erreur lors de la création de la session de paiement",
-    )
+    console.error("❌ ERREUR STRIPE :", error.message)
+    throw new Error(error.message)
   }
 }
