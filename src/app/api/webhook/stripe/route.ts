@@ -23,15 +23,18 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
+    const cartDetails = session.metadata?.cart_details // "id:qty,id:qty"
 
-    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
-      expand: ["data.price.product"],
-    })
+    if (!cartDetails) {
+      console.error("❌ Metadata 'cart_details' manquantes dans la session")
+      return new NextResponse("Metadata missing", { status: 400 })
+    }
 
     try {
+      // On utilise une transaction Prisma pour tout faire d'un coup
       await prisma.$transaction(
         async (tx) => {
-          // 2. Création de la commande principale
+          // 1. Création de la commande principale
           const order = await tx.order.create({
             data: {
               stripeSessionId: session.id,
@@ -41,39 +44,36 @@ export async function POST(req: Request) {
             },
           })
 
-          for (const item of lineItems.data) {
-            const stripeProduct = item.price?.product as Stripe.Product
-            const dbId = stripeProduct.metadata?.db_id
+          // 2. Analyse de la chaîne "id:qty"
+          const items = cartDetails.split(",")
 
-            if (!dbId) {
-              throw new Error(
-                `ID produit absent des metadata pour: ${item.description}`,
-              )
-            }
+          for (const itemStr of items) {
+            const [productId, quantity] = itemStr.split(":").map(Number)
 
-            const productIdNum = parseInt(dbId)
-            const quantityPurchased = item.quantity || 1
+            if (isNaN(productId) || isNaN(quantity)) continue
 
+            // Ajout de l'item à la commande
             await tx.orderItem.create({
               data: {
                 orderId: order.id,
-                productId: productIdNum,
-                quantity: quantityPurchased,
-                unitPrice: (item.price?.unit_amount || 0) / 100,
+                productId: productId,
+                quantity: quantity,
+                unitPrice: 0, // Optionnel: tu peux enrichir les metadata avec les prix si besoin
               },
             })
 
+            // MISE À JOUR DU STOCK DANS NEON
             await tx.product.update({
-              where: { id: productIdNum },
+              where: { id: productId },
               data: {
                 stock: {
-                  decrement: quantityPurchased,
+                  decrement: quantity,
                 },
               },
             })
 
             console.log(
-              `📦 Stock décrémenté pour le produit ${productIdNum} (-${quantityPurchased})`,
+              `📦 Stock décrémenté pour le produit #${productId} (-${quantity})`,
             )
           }
         },
@@ -83,9 +83,7 @@ export async function POST(req: Request) {
         },
       )
 
-      console.log(
-        "🚀 SUCCÈS : Commande créée et stock mis à jour avec Prisma !",
-      )
+      console.log("🚀 SUCCÈS : Commande Neon créée et stock mis à jour !")
     } catch (dbError: any) {
       console.error("❌ Erreur Transaction Prisma :", dbError.message)
       return new NextResponse(`Database Error: ${dbError.message}`, {
@@ -94,5 +92,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return new NextResponse(null, { status: 200 })
+  return new NextResponse("Success", { status: 200 })
 }

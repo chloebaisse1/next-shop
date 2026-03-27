@@ -7,30 +7,24 @@ export async function createCheckoutSession(cart: any[]) {
   const secretKey = process.env.STRIPE_SECRET_KEY
   const publicUrl = process.env.NEXT_PUBLIC_URL
 
-  if (!secretKey) {
-    throw new Error("Configuration serveur incomplète (Key)")
-  }
-
-  if (!publicUrl) {
-    throw new Error("Configuration serveur incomplète (URL)")
-  }
+  if (!secretKey) throw new Error("Configuration serveur incomplète (Key)")
+  if (!publicUrl) throw new Error("Configuration serveur incomplète (URL)")
 
   const stripe = new Stripe(secretKey)
 
   try {
+    const cartMetadata = cart
+      .map((item) => `${item.id}:${item.quantity}`)
+      .join(",")
+
     const line_items = cart.map((item) => {
       const amount = Math.round(Number(item.price) * 100)
-
       return {
         price_data: {
           currency: "eur",
           product_data: {
             name: item.name,
             description: item.description || undefined,
-
-            metadata: {
-              db_id: item.id.toString(),
-            },
           },
           unit_amount: amount,
         },
@@ -42,7 +36,9 @@ export async function createCheckoutSession(cart: any[]) {
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-
+      metadata: {
+        cart_details: cartMetadata,
+      },
       success_url: `${publicUrl.replace(/\/$/, "")}/cart/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${publicUrl.replace(/\/$/, "")}/cart`,
     })
